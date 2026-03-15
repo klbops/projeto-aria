@@ -1,0 +1,53 @@
+{
+  "name": "ARIA — Resumo Diário 07:30",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": { "interval": [{ "field": "cronExpression", "expression": "30 7 * * *" }] }
+      },
+      "id": "cron",
+      "name": "Todo dia 07:30",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "url": "http://backend:3001/api/chat",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            { "name": "message", "value": "Me dê um resumo completo do meu dia: eventos, tarefas e clima." },
+            { "name": "sessionId", "value": "cron_daily" }
+          ]
+        }
+      },
+      "id": "get-summary",
+      "name": "Gerar Resumo ARIA",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $env.TELEGRAM_CHAT_ID }}",
+        "text": "☀️ *Resumo Matinal ARIA*\n\n={{ $json.reply }}",
+        "additionalFields": { "parse_mode": "Markdown" }
+      },
+      "id": "send-telegram",
+      "name": "Enviar no Telegram",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1,
+      "position": [680, 300]
+    }
+  ],
+  "connections": {
+    "Todo dia 07:30": {
+      "main": [[{ "node": "Gerar Resumo ARIA", "type": "main", "index": 0 }]]
+    },
+    "Gerar Resumo ARIA": {
+      "main": [[{ "node": "Enviar no Telegram", "type": "main", "index": 0 }]]
+    }
+  },
+  "active": true
+}

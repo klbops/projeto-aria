@@ -1,0 +1,73 @@
+version: "3.9"
+
+services:
+  # ─── PostgreSQL ───────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: aria_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: aria_db
+      POSTGRES_USER: aria_user
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-aria_secret}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U aria_user -d aria_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ─── Backend (Node.js) ────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: aria_backend
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://aria_user:${POSTGRES_PASSWORD:-aria_secret}@postgres:5432/aria_db
+      NODE_OPTIONS: --dns-result-order=ipv4first
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
+    ports:
+      - "3001:3001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # ─── n8n (opcional — descomentar quando quiser) ───────────
+  # n8n:
+  #   image: n8nio/n8n:latest
+  #   container_name: aria_n8n
+  #   restart: unless-stopped
+  #   environment:
+  #     N8N_HOST: ${N8N_HOST:-localhost}
+  #     N8N_PORT: 5678
+  #     WEBHOOK_URL: http://${N8N_HOST:-localhost}:5678/
+  #     DB_TYPE: postgresdb
+  #     DB_POSTGRESDB_HOST: postgres
+  #     DB_POSTGRESDB_PORT: 5432
+  #     DB_POSTGRESDB_DATABASE: aria_db
+  #     DB_POSTGRESDB_USER: aria_user
+  #     DB_POSTGRESDB_PASSWORD: ${POSTGRES_PASSWORD:-aria_secret}
+  #     N8N_BASIC_AUTH_ACTIVE: "true"
+  #     N8N_BASIC_AUTH_USER: ${N8N_USER:-admin}
+  #     N8N_BASIC_AUTH_PASSWORD: ${N8N_PASSWORD:-admin123}
+  #   ports:
+  #     - "5678:5678"
+  #   volumes:
+  #     - n8n_data:/home/node/.n8n
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+
+volumes:
+  postgres_data:
+  # n8n_data:
